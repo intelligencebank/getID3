@@ -147,29 +147,6 @@ class getID3
 			$this->startup_warning .= 'PHP has less than 12MB available memory and might run out if all modules are loaded. Increase memory_limit in php.ini';
 		}
 
-		// Check safe_mode off
-		if (preg_match('#(1|ON)#i', ini_get('safe_mode'))) {
-			$this->warning('WARNING: Safe mode is on, shorten support disabled, md5data/sha1data for ogg vorbis disabled, ogg vorbos/flac tag writing disabled.');
-		}
-
-		if (intval(ini_get('mbstring.func_overload')) > 0) {
-			$this->warning('WARNING: php.ini contains "mbstring.func_overload = '.ini_get('mbstring.func_overload').'", this may break things.');
-		}
-
-		// Check for magic_quotes_runtime
-		if (function_exists('get_magic_quotes_runtime')) {
-			if (get_magic_quotes_runtime()) {
-				return $this->startup_error('magic_quotes_runtime must be disabled before running getID3(). Surround getid3 block by set_magic_quotes_runtime(0) and set_magic_quotes_runtime(1).');
-			}
-		}
-
-		// Check for magic_quotes_gpc
-		if (function_exists('magic_quotes_gpc')) {
-			if (get_magic_quotes_gpc()) {
-				return $this->startup_error('magic_quotes_gpc must be disabled before running getID3(). Surround getid3 block by set_magic_quotes_gpc(0) and set_magic_quotes_gpc(1).');
-			}
-		}
-
 		// Load support library
 		if (!include_once(GETID3_INCLUDEPATH.'getid3.lib.php')) {
 			$this->startup_error .= 'getid3.lib.php is missing or corrupt';
@@ -379,8 +356,8 @@ class getID3
 				$header = fread($this->fp, 10);
 				if ((substr($header, 0, 3) == 'ID3') && (strlen($header) == 10)) {
 					$this->info['id3v2']['header']        = true;
-					$this->info['id3v2']['majorversion']  = ord($header{3});
-					$this->info['id3v2']['minorversion']  = ord($header{4});
+					$this->info['id3v2']['majorversion']  = ord($header[3]);
+					$this->info['id3v2']['minorversion']  = ord($header[4]);
 					$this->info['avdataoffset']          += getid3_lib::BigEndian2Int(substr($header, 6, 4), 1) + 10; // length of ID3v2 tag in 10-byte header doesn't include 10-byte header length
 				}
 			}
@@ -1315,72 +1292,63 @@ class getID3
 			// page sequence numbers likely happens for OggSpeex and OggFLAC as well, but
 			// currently vorbiscomment only works on OggVorbis files.
 
-			if (preg_match('#(1|ON)#i', ini_get('safe_mode'))) {
+			// Prevent user from aborting script
+			$old_abort = ignore_user_abort(true);
 
-				$this->warning('Failed making system call to vorbiscomment.exe - '.$algorithm.'_data is incorrect - error returned: PHP running in Safe Mode (backtick operator not available)');
-				$this->info[$algorithm.'_data'] = false;
+			// Create empty file
+			$empty = tempnam(GETID3_TEMP_DIR, 'getID3');
+			touch($empty);
+
+			// Use vorbiscomment to make temp file without comments
+			$temp = tempnam(GETID3_TEMP_DIR, 'getID3');
+			$file = $this->info['filenamepath'];
+
+			if (GETID3_OS_ISWINDOWS) {
+
+				if (file_exists(GETID3_HELPERAPPSDIR.'vorbiscomment.exe')) {
+
+					$commandline = '"'.GETID3_HELPERAPPSDIR.'vorbiscomment.exe" -w -c "'.$empty.'" "'.$file.'" "'.$temp.'"';
+					$VorbisCommentError = `$commandline`;
+
+				} else {
+
+					$VorbisCommentError = 'vorbiscomment.exe not found in '.GETID3_HELPERAPPSDIR;
+
+				}
 
 			} else {
 
-				// Prevent user from aborting script
-				$old_abort = ignore_user_abort(true);
-
-				// Create empty file
-				$empty = tempnam(GETID3_TEMP_DIR, 'getID3');
-				touch($empty);
-
-				// Use vorbiscomment to make temp file without comments
-				$temp = tempnam(GETID3_TEMP_DIR, 'getID3');
-				$file = $this->info['filenamepath'];
-
-				if (GETID3_OS_ISWINDOWS) {
-
-					if (file_exists(GETID3_HELPERAPPSDIR.'vorbiscomment.exe')) {
-
-						$commandline = '"'.GETID3_HELPERAPPSDIR.'vorbiscomment.exe" -w -c "'.$empty.'" "'.$file.'" "'.$temp.'"';
-						$VorbisCommentError = `$commandline`;
-
-					} else {
-
-						$VorbisCommentError = 'vorbiscomment.exe not found in '.GETID3_HELPERAPPSDIR;
-
-					}
-
-				} else {
-
-					$commandline = 'vorbiscomment -w -c "'.$empty.'" "'.$file.'" "'.$temp.'" 2>&1';
-					$commandline = 'vorbiscomment -w -c '.escapeshellarg($empty).' '.escapeshellarg($file).' '.escapeshellarg($temp).' 2>&1';
-					$VorbisCommentError = `$commandline`;
-
-				}
-
-				if (!empty($VorbisCommentError)) {
-
-					$this->info['warning'][]         = 'Failed making system call to vorbiscomment(.exe) - '.$algorithm.'_data will be incorrect. If vorbiscomment is unavailable, please download from http://www.vorbis.com/download.psp and put in the getID3() directory. Error returned: '.$VorbisCommentError;
-					$this->info[$algorithm.'_data']  = false;
-
-				} else {
-
-					// Get hash of newly created file
-					switch ($algorithm) {
-						case 'md5':
-							$this->info[$algorithm.'_data'] = md5_file($temp);
-							break;
-
-						case 'sha1':
-							$this->info[$algorithm.'_data'] = sha1_file($temp);
-							break;
-					}
-				}
-
-				// Clean up
-				unlink($empty);
-				unlink($temp);
-
-				// Reset abort setting
-				ignore_user_abort($old_abort);
+				$commandline = 'vorbiscomment -w -c "'.$empty.'" "'.$file.'" "'.$temp.'" 2>&1';
+				$commandline = 'vorbiscomment -w -c '.escapeshellarg($empty).' '.escapeshellarg($file).' '.escapeshellarg($temp).' 2>&1';
+				$VorbisCommentError = `$commandline`;
 
 			}
+
+			if (!empty($VorbisCommentError)) {
+
+				$this->info['warning'][]         = 'Failed making system call to vorbiscomment(.exe) - '.$algorithm.'_data will be incorrect. If vorbiscomment is unavailable, please download from http://www.vorbis.com/download.psp and put in the getID3() directory. Error returned: '.$VorbisCommentError;
+				$this->info[$algorithm.'_data']  = false;
+
+			} else {
+
+				// Get hash of newly created file
+				switch ($algorithm) {
+					case 'md5':
+						$this->info[$algorithm.'_data'] = md5_file($temp);
+						break;
+
+					case 'sha1':
+						$this->info[$algorithm.'_data'] = sha1_file($temp);
+						break;
+				}
+			}
+
+			// Clean up
+			unlink($empty);
+			unlink($temp);
+
+			// Reset abort setting
+			ignore_user_abort($old_abort);
 
 		} else {
 

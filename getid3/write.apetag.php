@@ -25,7 +25,7 @@ class getid3_write_apetag
 	var $warnings                   = array(); // any non-critical errors will be stored here
 	var $errors                     = array(); // any critical errors will be stored here
 
-	function getid3_write_apetag() {
+	function __construct() {
 		return true;
 	}
 
@@ -188,8 +188,8 @@ class getid3_write_apetag
 		}
 
 		// 0: Item contains text information coded in UTF-8
-		// 1: Item contains binary information °)
-		// 2: Item is a locator of external stored information °°)
+		// 1: Item contains binary information ï¿½)
+		// 2: Item is a locator of external stored information ï¿½ï¿½)
 		// 3: reserved
 		$APEtagFlags[3] |= ($encodingid << 1);
 

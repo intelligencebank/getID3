@@ -112,11 +112,6 @@ class getid3_shorten extends getid3_handler
 
 		}
 
-		if (preg_match('#(1|ON)#i', ini_get('safe_mode'))) {
-			$info['error'][] = 'PHP running in Safe Mode - backtick operator not available, cannot run shntool to analyze Shorten files';
-			return false;
-		}
-
 		if (GETID3_OS_ISWINDOWS) {
 
 			$RequiredFiles = array('shorten.exe', 'cygwin1.dll', 'head.exe');

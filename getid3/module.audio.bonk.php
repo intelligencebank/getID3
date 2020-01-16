@@ -40,7 +40,7 @@ class getid3_bonk extends getid3_handler
 				fseek($this->getid3->fp, 0 - $BonkTagSize, SEEK_CUR);
 				$BonkTagOffset = ftell($this->getid3->fp);
 				$TagHeaderTest = fread($this->getid3->fp, 5);
-				if (($TagHeaderTest{0} != "\x00") || (substr($PossibleBonkTag, 4, 4) != strtolower(substr($PossibleBonkTag, 4, 4)))) {
+				if (($TagHeaderTest[0] != "\x00") || (substr($PossibleBonkTag, 4, 4) != strtolower(substr($PossibleBonkTag, 4, 4)))) {
 					$info['error'][] = 'Expecting "'.getid3_lib::PrintHexBytes("\x00".strtoupper(substr($PossibleBonkTag, 4, 4))).'" at offset '.$BonkTagOffset.', found "'.getid3_lib::PrintHexBytes($TagHeaderTest).'"';
 					return false;
 				}
@@ -177,7 +177,7 @@ class getid3_bonk extends getid3_handler
 				$BonkData = "\x00".'META'.fread($this->getid3->fp, $info['bonk']['META']['size'] - 5);
 				$info['bonk']['META']['version'] = getid3_lib::LittleEndian2Int(substr($BonkData,  5, 1));
 
-				$MetaTagEntries = floor(((strlen($BonkData) - 8) - 6) / 8); // BonkData - xxxxmeta - ØMETA
+				$MetaTagEntries = floor(((strlen($BonkData) - 8) - 6) / 8); // BonkData - xxxxmeta - ï¿½META
 				$offset = 6;
 				for ($i = 0; $i < $MetaTagEntries; $i++) {
 					$MetaEntryTagName   =                              substr($BonkData, $offset, 4);
